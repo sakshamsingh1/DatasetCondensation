@@ -93,11 +93,95 @@ def get_dataset(dataset, data_path):
 
         dst_test = TensorDataset(images_val, labels_val)  # no augmentation
 
+    elif dataset == 'AVE':
+        channel = 3
+        im_size = (128, 128)
+        mean = [0.425, 0.396,0.370]
+        std = [0.229, 0.224, 0.221]
+        num_classes = 28
+        data = torch.load(os.path.join(data_path, 'ave.pt'), map_location='cpu')
+
+        class_names = data['classes']
+
+        images_train = data['images_train']
+        labels_train = data['labels_train']
+        images_train = images_train.detach().float() / 255.0
+        labels_train = labels_train.detach()
+        for c in range(channel):
+            images_train[:, c] = (images_train[:, c] - mean[c]) / std[c]
+        dst_train = TensorDataset(images_train, labels_train)  # no augmentation
+
+        images_val = data['images_val']
+        labels_val = data['labels_val']
+        images_val = images_val.detach().float() / 255.0
+        labels_val = labels_val.detach()
+
+        for c in range(channel):
+            images_val[:, c] = (images_val[:, c] - mean[c]) / std[c]
+
+        dst_test = TensorDataset(images_val, labels_val)  # no augmentation
+
+    elif dataset == 'AVE_image':
+        channel = 3
+        im_size = (128, 128)
+        mean = [0.425, 0.396,0.370]
+        std = [0.229, 0.224, 0.221]
+        num_classes = 28
+        data = torch.load(os.path.join(data_path, 'ave_image.pt'), map_location='cpu')
+
+        class_names = data['classes']
+
+        images_train = data['images_train']
+        labels_train = data['labels_train']
+        images_train = images_train.detach().float() / 255.0
+        labels_train = labels_train.detach()
+        for c in range(channel):
+            images_train[:, c] = (images_train[:, c] - mean[c]) / std[c]
+        dst_train = TensorDataset(images_train, labels_train)  # no augmentation
+
+        images_test = data['images_test']
+        labels_test = data['labels_test']
+        images_test = images_test.detach().float() / 255.0
+        labels_test = labels_test.detach()
+
+        for c in range(channel):
+            images_test[:, c] = (images_test[:, c] - mean[c]) / std[c]
+
+        dst_test = TensorDataset(images_test, labels_test)  # no augmentation
+
+    elif dataset == 'AVE_audio':
+        channel = 1
+        im_size = (96, 64)
+        mean = [0.425, 0.396,0.370]
+        std = [0.229, 0.224, 0.221]
+        num_classes = 28
+        data = torch.load(os.path.join(data_path, 'ave_audio.pt'), map_location='cpu')
+
+        class_names = data['classes']
+
+        images_train = data['images_train']
+        labels_train = data['labels_train']
+        images_train = images_train.detach().float()# / 255.0
+        labels_train = labels_train.detach()
+        # for c in range(channel):
+        #     images_train[:, c] = (images_train[:, c] - mean[c]) / std[c]
+        dst_train = TensorDataset(images_train, labels_train)  # no augmentation
+
+        images_test = data['images_test']
+        labels_test = data['labels_test']
+        images_test = images_test.detach().float() #/ 255.0
+        labels_test = labels_test.detach()
+
+        # for c in range(channel):
+        #     images_test[:, c] = (images_test[:, c] - mean[c]) / std[c]
+
+        dst_test = TensorDataset(images_test, labels_test)  # no augmentation
+
     else:
         exit('unknown dataset: %s'%dataset)
 
 
-    testloader = torch.utils.data.DataLoader(dst_test, batch_size=256, shuffle=False, num_workers=0)
+    testloader = torch.utils.data.DataLoader(dst_test, batch_size=32, shuffle=False, num_workers=0)
     return channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader
 
 
@@ -350,6 +434,9 @@ def evaluate_synset(it_eval, net, images_train, labels_train, testloader, args):
     start = time.time()
     for ep in range(Epoch+1):
         loss_train, acc_train = epoch('train', trainloader, net, optimizer, criterion, args, aug = True)
+        
+        # print(f'epoch={ep}, train loss={round(loss_train,4)}, train acc={round(acc_train,4)}')
+        
         if ep in lr_schedule:
             lr *= 0.1
             optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=0.0005)
@@ -359,6 +446,43 @@ def evaluate_synset(it_eval, net, images_train, labels_train, testloader, args):
     print('%s Evaluate_%02d: epoch = %04d train time = %d s train loss = %.6f train acc = %.4f, test acc = %.4f' % (get_time(), it_eval, Epoch, int(time_train), loss_train, acc_train, acc_test))
 
     return net, acc_train, acc_test
+
+
+def evaluate_synset_upd(it_eval, net, images_train, labels_train, testloader, args):
+    net = net.to(args.device)
+    images_train = images_train.to(args.device)
+    labels_train = labels_train.to(args.device)
+    lr = float(args.lr_net)
+    Epoch = int(args.epoch_eval_train)
+    lr_schedule = [Epoch//2+1]
+    optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=0.0005)
+    criterion = nn.CrossEntropyLoss().to(args.device)
+
+    dst_train = TensorDataset(images_train, labels_train)
+    trainloader = torch.utils.data.DataLoader(dst_train, batch_size=args.batch_train, shuffle=True, num_workers=0)
+
+    start = time.time()
+    for ep in range(Epoch+1):
+        loss_train, acc_train = epoch('train', trainloader, net, optimizer, criterion, args, aug = True)
+        
+        print(f'TRAIN: epoch={ep}, train loss={round(loss_train,4)}, train acc={round(acc_train,4)}')
+        
+        if ep in lr_schedule:
+            lr *= 0.1
+            optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=0.0005)
+
+        if ep % 20 == 0:    
+            loss_test, acc_test = epoch('test', testloader, net, optimizer, criterion, args, aug = False)
+            print(f'TEST: epoch={ep}, test acc={acc_test}')
+            # print('TEST: epoch = %04d train time = %d s train loss = %.6f train acc = %.4f, test acc = %.4f' % (get_time(), it_eval, Epoch, int(time_train), loss_train, acc_train, acc_test))
+
+    time_train = time.time() - start
+    loss_test, acc_test = epoch('test', testloader, net, optimizer, criterion, args, aug = False)
+    print('FINAL: %s Evaluate_%02d: epoch = %04d train time = %d s train loss = %.6f train acc = %.4f, test acc = %.4f' % (get_time(), it_eval, Epoch, int(time_train), loss_train, acc_train, acc_test))
+
+    return net, acc_train, acc_test
+
+
 
 
 
