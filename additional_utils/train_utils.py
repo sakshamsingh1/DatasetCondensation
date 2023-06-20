@@ -16,7 +16,7 @@ from tqdm import tqdm
 import imageio
 
 # Our libs
-# from nets import ModelBuilder, activate
+from nets import activate
 
 import matplotlib.pyplot as plt
 
@@ -29,7 +29,6 @@ def plot_loss_metrics(path, history):
     plt.legend()
     fig.savefig(os.path.join(path, 'loss.png'), dpi=200)
     plt.close('all')
-
 
 def makedirs(path, remove=False):
     if os.path.isdir(path):
@@ -86,13 +85,19 @@ class AverageMeter(object):
 # Network wrapper, defines forward pass
 class NetWrapper(torch.nn.Module):
     def __init__(self, args, nets):
-        super(NetWrapper, self).__init__()
-        self.net_frame, self.net_classifier = nets
+        super(NetWrapper, self).__init__() 
+        self.net_sound, self.net_frame, self.net_classifier = nets
+        self.args = args
 
-    def forward(self, frame):
-        feat_frame = self.net_frame(frame)
-        feat_frame = activate(feat_frame, args.img_activation)
-        pred = self.net_classifier(feat_frame)
+    def forward(self, audio, frame):
+        feat_sound, feat_frame = None, None
+        if self.net_sound is not None:
+            feat_sound = self.net_sound(audio)
+            feat_sound = activate(feat_sound, self.args.sound_activation)
+        if self.net_frame is not None:
+            feat_frame = self.net_frame(frame)
+            feat_frame = activate(feat_frame, self.args.img_activation)  
+        pred = self.net_classifier(feat_sound, feat_frame)
         return pred
 
 
@@ -111,14 +116,16 @@ def evaluate(netWrapper, loader, history, epoch, args):
     total = 0
 
     for i, batch_data in enumerate(loader):
+        audios = batch_data['audios']
         frames = batch_data['frames']
         gts = batch_data['labels']
 
+        audio = audios[0].to(args.device).detach()
         frame = frames[0].to(args.device).squeeze(2).detach()
         gt = gts[0].to(args.device)
         
         # forward pass
-        preds = netWrapper(frame)
+        preds = netWrapper(audio, frame)
         err = criterion(preds, gt)
 
         _, predicted = torch.max(preds.data, 1)
@@ -141,8 +148,6 @@ def evaluate(netWrapper, loader, history, epoch, args):
         print('Plotting figures...')
         plot_loss_metrics(args.ckpt, history)
 
-
-
 # train one epoch
 def train(netWrapper, loader, optimizer, history, epoch, args):
     torch.set_grad_enabled(True)
@@ -162,15 +167,17 @@ def train(netWrapper, loader, optimizer, history, epoch, args):
         torch.cuda.synchronize()
         data_time.update(time.perf_counter() - tic)
 
+        audios = batch_data['audios']
         frames = batch_data['frames']
         gts = batch_data['labels']
+        audio = audios[0].to(args.device)
         frame = frames[0].to(args.device).squeeze(2)
         gt = gts[0].to(args.device)
 
 
         # forward pass
         netWrapper.zero_grad()
-        output = netWrapper.forward(frame)
+        output = netWrapper.forward(audio, frame)
         err = criterion(output, gt)
 
         # backward
@@ -196,35 +203,43 @@ def train(netWrapper, loader, optimizer, history, epoch, args):
             history['train']['err'].append(err.item())
     return
 
-
-
 def checkpoint(nets, history, epoch, args):
     print('Saving checkpoints at {} epochs.'.format(epoch))
-    # (net_frame, net_classifier) = nets
+    (net_sound, net_frame, net_classifier) = nets
     suffix_latest = 'latest.pth'
     suffix_best = 'best.pth'
 
     torch.save(history,
                '{}/history_{}'.format(args.ckpt, suffix_latest))
-    torch.save(nets.state_dict(),
-               '{}/frame_{}'.format(args.ckpt, suffix_latest))
-    # torch.save(net_classifier.state_dict(),
-    #            '{}/classifier_{}'.format(args.ckpt, suffix_latest))
+    if net_sound is not None:
+        torch.save(net_sound.state_dict(),
+                '{}/sound_{}'.format(args.ckpt, suffix_latest))
+    if net_frame is not None:
+        torch.save(net_frame.state_dict(),
+                '{}/frame_{}'.format(args.ckpt, suffix_latest))
+    torch.save(net_classifier.state_dict(),
+               '{}/classifier_{}'.format(args.ckpt, suffix_latest))
 
     cur_acc = history['val']['acc'][-1]
     if cur_acc > args.best_acc:
         args.best_acc = cur_acc
-        torch.save(nets.state_dict(),
-                   '{}/frame_{}'.format(args.ckpt, suffix_best))
-        # torch.save(net_classifier.state_dict(),
-        #            '{}/classifier_{}'.format(args.ckpt, suffix_best))
-
+        if net_sound is not None:
+            torch.save(net_sound.state_dict(),
+                    '{}/sound_{}'.format(args.ckpt, suffix_best))
+        if net_frame is not None:        
+            torch.save(net_frame.state_dict(),
+                    '{}/frame_{}'.format(args.ckpt, suffix_best))
+        torch.save(net_classifier.state_dict(),
+                   '{}/classifier_{}'.format(args.ckpt, suffix_best))
 
 def create_optimizer(nets, args):
-    # (net_frame, net_classifier) = nets
-    param_groups = [{'params': nets.parameters(), 'lr': args.lr_classifier}]
+    (net_sound, net_frame, net_classifier) = nets
+    param_groups = [{'params': net_classifier.parameters(), 'lr': args.lr_classifier}]
+    if net_sound is not None:
+        param_groups += [{'params': net_sound.parameters(), 'lr': args.lr_sound}]
+    if net_frame is not None:
+        param_groups += [{'params': net_frame.parameters(), 'lr': args.lr_frame}]
     return torch.optim.SGD(param_groups, momentum=args.beta1, weight_decay=args.weight_decay)
-
 
 def adjust_learning_rate(optimizer, args):
     args.lr_sound *= 0.1
@@ -232,3 +247,4 @@ def adjust_learning_rate(optimizer, args):
     args.lr_classifier *= 0.1
     for param_group in optimizer.param_groups:
         param_group['lr'] *= 0.1
+

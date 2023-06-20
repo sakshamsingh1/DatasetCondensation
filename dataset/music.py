@@ -78,8 +78,8 @@ class MUSICDataset(BaseDataset):
                 frames[n] = self._load_frames(path_frames[n])
                 # jitter audio
                 # center_timeN = (center_frames[n] - random.random()) / self.fps
-                # audios[n] = self.get_spectrogram(path_audios[n])
-                audios[n] = None
+                audios[n] = self.get_spectrogram(path_audios[n])
+                # audios[n] = None
 
         except Exception as e:
             print('Failed loading frame/audio: {}'.format(e))
@@ -87,9 +87,10 @@ class MUSICDataset(BaseDataset):
             mags, frames, audios, phs = \
                 self.dummy_mix_data(N)
 
-        # ret_dict = {'frames': frames, 'audios': audios, 'labels':labels}
-        ret_dict = {'frames': frames, 'labels':labels}
+        ret_dict = {'frames': frames, 'audios': audios, 'labels':labels}
+        # ret_dict = {'frames': frames, 'labels':labels}
         if self.split != 'train':
             ret_dict['infos'] = infos
 
         return ret_dict
+

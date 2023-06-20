@@ -36,6 +36,12 @@ for file in files:
     read_path = f'/mnt/data/datasets/AVE_Dataset/{file}.txt'
     df = pd.read_csv(read_path, delimiter='&', header=None, names=['category', 'video_id', 'quality', 'start_time', 'end_time'])
     df = df[df['video_id']!='VWi2ENBuTbw']
+    df = df[df['video_id']!='0-I1-DOC-r8']
+    df = df[df['video_id']!='TTYevyM_tUw']
+    df = df[df['video_id']!='K6F1sogt46U']
+    df = df[df['video_id']!='MWFQerde_h8']
+    df = df[df['video_id']!='GmetnCLxFHE']
+
     df['label'] = df['category'].map(label_map)
 
     path = f'/mnt/user/saksham/data_distill/data/labels/{file}.csv'

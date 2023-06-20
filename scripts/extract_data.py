@@ -22,7 +22,7 @@ def extract_frames(video_path, output_folder, start_time, end_time, fps=8):
             ffmpeg
             .input(video_path, ss=second)
             # .output(output_path, vf='fps=' + str(fps), t=1)
-            .output(output_path, vf='fps=' + str(fps) + ',scale=128:128', t=1)
+            .output(output_path, vf='fps=' + str(fps) + ',scale=224:224', t=1)
             .global_args('-loglevel', 'error')
             .run()
         )
@@ -50,8 +50,10 @@ def extract_audio(video_path, output_folder, start_time, end_time, afps=11000):
 FPS = 8  
 AFPS = 11000
 base_path = '/mnt/data/datasets/AVE_Dataset'
-output_base = '/mnt/user/saksham/data/frames'
+output_base = '/mnt/user/saksham/data/frames_224'
 output_base_audio = '/mnt/user/saksham/data/audio'
+flag_extract_frames = True
+flag_extrat_audio = False
 
 label_path = os.path.join(base_path, 'Annotations.txt')
 ave_path = os.path.join(base_path, 'AVE')
@@ -62,10 +64,12 @@ for index, row in tqdm(labels_df.iterrows()):
     output_folder_img = os.path.join(output_base, row['VideoID'])
     start_time = row['StartTime']
     end_time = row['EndTime']
-    extract_frames(video_path, output_folder_img, start_time, end_time, fps=FPS)
+    if flag_extract_frames:
+        extract_frames(video_path, output_folder_img, start_time, end_time, fps=FPS)
 
-    output_folder_aud = os.path.join(output_base_audio, row['VideoID'])
-    extract_audio(video_path, output_folder_aud, start_time, end_time, afps=AFPS)
+    if flag_extrat_audio:
+        output_folder_aud = os.path.join(output_base_audio, row['VideoID'])
+        extract_audio(video_path, output_folder_aud, start_time, end_time, afps=AFPS)
 
 # #extracting audio
 # for index, row in tqdm(labels_df.iterrows()):

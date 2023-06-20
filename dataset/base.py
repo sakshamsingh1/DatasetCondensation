@@ -14,7 +14,7 @@ from . import video_transforms as vtransforms
 
 
 class BaseDataset(torchdata.Dataset):
-    def __init__(self, list_sample, opt, max_sample=-1, split='train'):
+    def __init__(self, list_sample, opt, max_sample=-1, split='train', one_frame_per_video=True):
         # params
         # max_sample = 100
         self.frameRate = opt.frameRate
@@ -45,7 +45,12 @@ class BaseDataset(torchdata.Dataset):
             for row in csv.reader(open(list_sample, 'r'), delimiter=','):
                 if len(row) < 2:
                     continue
-                self.list_sample.append(row)
+                if one_frame_per_video:
+                    self.list_sample.append(row)
+                else: # one frame per second for start and end annotations
+                    for i in range(int(row[1]), int(row[2])):
+                        temp_row = [row[0], i, i, row[3]]
+                        self.list_sample.append(temp_row)
         elif isinstance(list_sample, list):
             self.list_sample = list_sample
         else:
@@ -137,7 +142,7 @@ class BaseDataset(torchdata.Dataset):
         wav_data = wav_data / 32768.0
 
         spec = waveform_to_examples(wav_data, sr)
-        spec = torch.from_numpy(spec)
+        spec = torch.from_numpy(spec).type(torch.float32)
         return spec
 
     def _load_audio(self, path, center_timestamp, nearest_resample=False):

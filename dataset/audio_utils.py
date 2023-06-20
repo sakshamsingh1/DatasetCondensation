@@ -5,7 +5,7 @@ import resampy
 import matplotlib.pyplot as plt
 import librosa
 
-SAMPLE_RATE = 11000
+SAMPLE_RATE = 16000
 LOG_OFFSET = 0.01
 _MEL_BREAK_FREQUENCY_HERTZ = 700.0
 _MEL_HIGH_FREQUENCY_Q = 1127.0

@@ -167,8 +167,8 @@ def get_dataset(dataset, data_path):
         #     images_train[:, c] = (images_train[:, c] - mean[c]) / std[c]
         dst_train = TensorDataset(images_train, labels_train)  # no augmentation
 
-        images_test = data['images_test']
-        labels_test = data['labels_test']
+        images_test = data['images_val']
+        labels_test = data['labels_val']
         images_test = images_test.detach().float() #/ 255.0
         labels_test = labels_test.detach()
 
@@ -179,7 +179,6 @@ def get_dataset(dataset, data_path):
 
     else:
         exit('unknown dataset: %s'%dataset)
-
 
     testloader = torch.utils.data.DataLoader(dst_test, batch_size=32, shuffle=False, num_workers=0)
     return channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader

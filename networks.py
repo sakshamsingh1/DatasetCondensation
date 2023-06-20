@@ -446,7 +446,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
         # self.classifier = nn.Linear(512*block.expansion, num_classes)
-        self.classifier = nn.Linear(8192, num_classes)
+        self.classifier = nn.Linear(25088, num_classes)
         
 
     def _make_layer(self, block, planes, num_blocks, stride):

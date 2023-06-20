@@ -18,16 +18,25 @@ from nets import ModelBuilder
 def main(args):
     ## network preparation
     builder = ModelBuilder()
+    net_sound = builder.build_sound(
+        arch=args.arch_sound,
+        weights=args.weights_sound)
     net_frame = builder.build_frame(
         arch=args.arch_frame,
         pool_type=args.img_pool,
         weights=args.weights_frame)
-
     net_classifier = builder.build_classifier(
         arch=args.arch_classifier,
         cls_num=args.cls_num,
-        weights=args.weights_classifier)
-    nets = (net_frame, net_classifier)
+        weights=args.weights_classifier,
+        input_modality=args.input_modality)
+
+    if args.input_modality == 'av':
+        nets = (net_sound, net_frame, net_classifier)
+    elif args.input_modality == 'a':
+        nets = (net_sound, None, net_classifier)
+    elif args.input_modality == 'v':
+        nets = (None, net_frame, net_classifier)
 
     ##  dataset preparation
     dataset_train = MUSICDataset(args.list_train, args, split='train')
@@ -44,7 +53,8 @@ def main(args):
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=int(args.workers),
-        drop_last=False)
+        drop_last=False) 
+
     args.epoch_iters = len(dataset_train) // args.batch_size
     print('1 Epoch = {} iters'.format(args.epoch_iters))
 
@@ -94,6 +104,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='data', help='dataset path')
     parser.add_argument('--epoch_eval_train', type=int, default=1000, help='epochs to train a model with synthetic data') 
     parser.add_argument('--dsa_strategy', type=str, default='color_crop_cutout_flip_scale_rotate', help='differentiable Siamese augmentation strategy')    
+    parser.add_argument('--input_modality', type=str, default='av', help='a/v/av')
 
     args = parser.parse_args()
     # args.method = 'DM'
@@ -126,10 +137,12 @@ if __name__ == '__main__':
     args.best_err = float("inf")
     args.best_acc = 0
     args.img_activation = 'no'
+    args.arch_sound = 'convNet'
+    args.weights_sound = ''
+    args.sound_activation = 'no'
 
     args.arch_frame = 'resnet18'
     args.img_pool = 'maxpool'
-    args.arch_classifier = 'single'
     args.cls_num = 28
     args.weights_classifier = ''
 
@@ -140,10 +153,10 @@ if __name__ == '__main__':
     args.list_val = '/mnt/user/saksham/data_distill/data/labels/testSet.csv'
     args.id = ''
 
-    ## end of arguments ##
-    args.id = '-{}-{}'.format(args.model, args.dataset)
-    args.id += '-epoch{}'.format(args.num_epoch)
+    args.arch_classifier = 'concat'
 
+    ## end of arguments ##
+    args.id = f'modality_{args.input_modality}-epoch_{args.num_epoch}'
     print('Model ID: {}'.format(args.id))
 
     # paths to save/load output
@@ -151,7 +164,12 @@ if __name__ == '__main__':
     if args.mode == 'train':
         makedirs(args.ckpt, remove=True)
     if args.mode == 'eval':
-        args.weights_frame = os.path.join(args.ckpt, 'frame_best.pth')
+        if (args.input_modality == 'a') or (args.input_modality == 'av'):
+            args.weights_sound = os.path.join(args.ckpt, 'sound_best.pth')
+
+        if (args.input_modality == 'v') or (args.input_modality == 'av'):    
+            args.weights_frame = os.path.join(args.ckpt, 'frame_best.pth')
+            
         args.weights_classifier = os.path.join(args.ckpt, 'classifier_best.pth')
 
     random.seed(args.seed)
