@@ -6,7 +6,8 @@ class Classifier_Concat(nn.Module):
         super(Classifier_Concat, self).__init__()
         dim_size = 640
         if input_modality == 'v':
-            dim_size = 512
+            # dim_size = 512
+            dim_size = 64
         elif input_modality == 'a':
             dim_size = 128
         self.fc1 = nn.Linear(dim_size, cls_num)
@@ -20,17 +21,3 @@ class Classifier_Concat(nn.Module):
             feat = torch.cat((feat_img,  feat_sound), dim =-1)
         g = self.fc1(feat)
         return g
-
-# class Classifier_Single(nn.Module):
-#     def __init__(self, cls_num, input_modality):
-#         super(Classifier_Single, self).__init__()
-#         if input_modality == 'v':
-#             dim_size = 512
-#         elif input_modality == 'a':
-#             dim_size = 128
-#         self.fc1 = nn.Linear(dim_size, cls_num)
-
-#     def forward(self, feat):
-#         # feat = torch.cat((feat_img,  feat_sound), dim =-1)
-#         g = self.fc1(feat)
-#         return g

@@ -46,24 +46,26 @@ class ModelBuilder():
 
         #net_sound.apply(self.weights_init)
         if len(weights) > 0:
-            print('Loading weights for net_sound')
+            # print('Loading weights for net_sound')
             net_sound.load_state_dict(torch.load(weights))
 
         return net_sound
 
     # builder for vision
     def build_frame(self, arch='resnet18', pool_type='avgpool',
-                    weights=''):
-        pretrained=True
+                    weights='', pretrained=True, channel=3, im_size=(224,224)):
+        # pretrained=True
         if arch == 'resnet18':
             original_resnet = torchvision.models.resnet18(pretrained)
             net = Resnet(
                 original_resnet, pool_type=pool_type)
+        elif arch == "convNet":
+            net = ConvNet(channel, im_size)
         else:
             raise Exception('Architecture undefined!')
 
         if len(weights) > 0:
-            print('Loading weights for net_frame')
+            # print('Loading weights for net_frame')
             net.load_state_dict(torch.load(weights))
         return net
 
@@ -76,7 +78,7 @@ class ModelBuilder():
 
         net.apply(self.weights_init)
         if len(weights) > 0:
-            print('Loading weights for net_grounding')
+            # print('Loading weights for net_grounding')
             net.load_state_dict(torch.load(weights))
         return net
 

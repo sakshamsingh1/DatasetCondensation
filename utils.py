@@ -9,7 +9,10 @@ from torchvision import datasets, transforms
 from scipy.ndimage.interpolation import rotate as scipyrotate
 from networks import MLP, ConvNet, LeNet, AlexNet, AlexNetBN, VGG11, VGG11BN, ResNet18, ResNet18BN_AP, ResNet18BN
 
-def get_dataset(dataset, data_path):
+def get_dataset(dataset, data_path, args):
+    # setting some defaults
+    dst_val = None
+
     if dataset == 'MNIST':
         channel = 1
         im_size = (28, 28)
@@ -123,9 +126,9 @@ def get_dataset(dataset, data_path):
 
     elif dataset == 'AVE_image':
         channel = 3
-        im_size = (128, 128)
-        mean = [0.425, 0.396,0.370]
-        std = [0.229, 0.224, 0.221]
+        im_size = (224, 224)
+        mean = [0.425, 0.396, 0.370]
+        std =  [0.229, 0.224, 0.221]
         num_classes = 28
         data = torch.load(os.path.join(data_path, 'ave_image.pt'), map_location='cpu')
 
@@ -134,19 +137,25 @@ def get_dataset(dataset, data_path):
         images_train = data['images_train']
         labels_train = data['labels_train']
         images_train = images_train.detach().float() / 255.0
-        labels_train = labels_train.detach()
+        labels_train = labels_train.detach().long()
         for c in range(channel):
             images_train[:, c] = (images_train[:, c] - mean[c]) / std[c]
         dst_train = TensorDataset(images_train, labels_train)  # no augmentation
 
+        images_val = data['images_val']
+        labels_val = data['labels_val']
+        images_val = images_val.detach().float() / 255.0
+        labels_val = labels_val.detach().long()
+        for c in range(channel):
+            images_val[:, c] = (images_val[:, c] - mean[c]) / std[c]
+        dst_val = TensorDataset(images_val, labels_val)  # no augmentation
+
         images_test = data['images_test']
         labels_test = data['labels_test']
         images_test = images_test.detach().float() / 255.0
-        labels_test = labels_test.detach()
-
+        labels_test = labels_test.detach().long()
         for c in range(channel):
             images_test[:, c] = (images_test[:, c] - mean[c]) / std[c]
-
         dst_test = TensorDataset(images_test, labels_test)  # no augmentation
 
     elif dataset == 'AVE_audio':
@@ -180,8 +189,11 @@ def get_dataset(dataset, data_path):
     else:
         exit('unknown dataset: %s'%dataset)
 
-    testloader = torch.utils.data.DataLoader(dst_test, batch_size=32, shuffle=False, num_workers=0)
-    return channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader
+    if dst_val is not None:
+        valloader = torch.utils.data.DataLoader(dst_val, batch_size=args.batch_real, shuffle=False, num_workers=args.num_workers)
+    testloader = torch.utils.data.DataLoader(dst_test, batch_size=args.batch_real, shuffle=False, num_workers=args.num_workers)
+
+    return channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader, valloader
 
 
 
@@ -415,8 +427,6 @@ def epoch(mode, dataloader, net, optimizer, criterion, args, aug):
 
     return loss_avg, acc_avg
 
-
-
 def evaluate_synset(it_eval, net, images_train, labels_train, testloader, args):
     net = net.to(args.device)
     images_train = images_train.to(args.device)
@@ -445,6 +455,11 @@ def evaluate_synset(it_eval, net, images_train, labels_train, testloader, args):
     print('%s Evaluate_%02d: epoch = %04d train time = %d s train loss = %.6f train acc = %.4f, test acc = %.4f' % (get_time(), it_eval, Epoch, int(time_train), loss_train, acc_train, acc_test))
 
     return net, acc_train, acc_test
+
+
+
+
+
 
 
 def evaluate_synset_upd(it_eval, net, images_train, labels_train, testloader, args):
@@ -480,6 +495,8 @@ def evaluate_synset_upd(it_eval, net, images_train, labels_train, testloader, ar
     print('FINAL: %s Evaluate_%02d: epoch = %04d train time = %d s train loss = %.6f train acc = %.4f, test acc = %.4f' % (get_time(), it_eval, Epoch, int(time_train), loss_train, acc_train, acc_test))
 
     return net, acc_train, acc_test
+
+
 
 
 

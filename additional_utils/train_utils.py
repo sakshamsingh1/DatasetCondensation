@@ -204,7 +204,7 @@ def train(netWrapper, loader, optimizer, history, epoch, args):
     return
 
 def checkpoint(nets, history, epoch, args):
-    print('Saving checkpoints at {} epochs.'.format(epoch))
+    # print('Saving checkpoints at {} epochs.'.format(epoch))
     (net_sound, net_frame, net_classifier) = nets
     suffix_latest = 'latest.pth'
     suffix_best = 'best.pth'
@@ -239,7 +239,8 @@ def create_optimizer(nets, args):
         param_groups += [{'params': net_sound.parameters(), 'lr': args.lr_sound}]
     if net_frame is not None:
         param_groups += [{'params': net_frame.parameters(), 'lr': args.lr_frame}]
-    return torch.optim.SGD(param_groups, momentum=args.beta1, weight_decay=args.weight_decay)
+    return torch.optim.Adam(param_groups, betas=(args.beta1, 0.999), weight_decay=args.weight_decay)    
+    # return torch.optim.SGD(param_groups, momentum=args.beta1, weight_decay=args.weight_decay)
 
 def adjust_learning_rate(optimizer, args):
     args.lr_sound *= 0.1
