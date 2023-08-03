@@ -3,11 +3,19 @@ import torch.nn.functional as F
 
 
 class Resnet(nn.Module):
-    def __init__(self, original_resnet,pool_type='maxpool'):
+    def __init__(self, original_resnet,pool_type='maxpool', channel=3):
         super(Resnet, self).__init__()
         self.pool_type = pool_type
-        self.features = nn.Sequential(
-            *list(original_resnet.children())[:-1])
+        
+        if channel == 1:
+            self.features = nn.Sequential(
+                nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False),
+                *list(original_resnet.children())[1:-1]  # Exclude the first and last layer
+            )
+        else:
+            self.features = nn.Sequential(
+                *list(original_resnet.children())[:-1])
+
         for param in self.features.parameters():
             param.requires_grad = True#False
 
@@ -46,3 +54,4 @@ class Resnet(nn.Module):
 
         x = x.view(B, C)
         return x
+

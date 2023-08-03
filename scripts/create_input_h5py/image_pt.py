@@ -6,13 +6,15 @@ from tqdm import tqdm
 import torch
 
 base_path = '/mnt/user/saksham/data_distill/DatasetCondensation/data'
-save_path = f'{base_path}/image_pt.pt'
+save_path = f'{base_path}/image_pt_64.pt'
 fps = 8
 
 frame_path = '/mnt/user/saksham/data/frames_224'
 list_file = '/mnt/user/saksham/data_distill/data/labels/trainSet.csv'
 index_map = {}
 img_list = []
+
+resize = torchvision.transforms.Resize(64)
 
 index = 0
 for row in tqdm(csv.reader(open(list_file, 'r'), delimiter=',')):
@@ -29,6 +31,7 @@ for row in tqdm(csv.reader(open(list_file, 'r'), delimiter=',')):
             index_map[file] = index
             file = os.path.join(frame_path, vid, str(i), f'{vid}_{i}_0{j}.jpg')
             img = torchvision.io.read_image(file)
+            img = resize(img)
             img_list.append(img)
             index += 1
 

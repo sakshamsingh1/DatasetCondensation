@@ -1,21 +1,11 @@
-'''
-Script to create input .pt file for training.
-It consists of these keys:
-- 'classes'
-- 'images_train'
-- 'images_val'
-- 'labels_train'
-- 'labels_val'
-- 'images_test'
-- 'labels_test'
-'''
-
 import os
 import pandas as pd
 import random
 import torchvision
 import torch
 from tqdm import tqdm
+from scipy.io import wavfile
+from audio_utils import waveform_to_examples
 
 base_path = '/mnt/data/datasets/AVE_Dataset'
 label_train_path = os.path.join(base_path, 'trainSet.txt')
@@ -24,6 +14,7 @@ label_test_path = os.path.join(base_path, 'testSet.txt')
 label_idx_to_map_path = '/mnt/user/saksham/data_distill/data/labels/cat_id_map.pt'
 
 frame_path = '/mnt/user/saksham/data/frames_224'
+audio_path = '/mnt/user/saksham/data_distill/data/audio'
 
 # IMG_SIZE = [224, 224]
 IMG_SIZE = [64, 64]
@@ -76,6 +67,15 @@ def get_label_idx(label):
     label = correct_label[label]
     return label_to_idx[label]
 
+def get_spectrogram(file):
+    sr, wav_data = wavfile.read(file)
+    wav_data = wav_data / 32768.0
+
+    spec = waveform_to_examples(wav_data, sr)
+    spec = torch.from_numpy(spec)
+    return spec
+
+
 train_count = 0
 val_count = 0
 test_count = 0
@@ -100,6 +100,7 @@ for index, row in df_test.iterrows():
     
 print(f'train:{train_count}, val:{val_count}, test:{test_count}')
 
+audio_train = torch.Tensor(train_count, 1, 96, 64)
 images_train = torch.Tensor(train_count, 3, IMG_SIZE[0], IMG_SIZE[1])
 labels_train = torch.zeros(train_count, dtype=torch.int32)
 
@@ -107,7 +108,6 @@ resize = torchvision.transforms.Resize(64)
 
 print('Creating train data...')
 curr_count = 0
-# import pdb; pdb.set_trace()
 for index, row in tqdm(df_train.iterrows()):
     video_id = row['video_id']
     category = row['category']
@@ -115,12 +115,17 @@ for index, row in tqdm(df_train.iterrows()):
     end_time = row['end_time']
 
     for curr_sec in range(start_time, end_time):
-        file = os.path.join(frame_path, video_id, str(curr_sec), f'{video_id}_{curr_sec}_04.jpg')
-        img = torchvision.io.read_image(file)
+        img_file = os.path.join(frame_path, video_id, str(curr_sec), f'{video_id}_{curr_sec}_04.jpg')
+        img = torchvision.io.read_image(img_file)
         images_train[curr_count] = resize(img)
+
+        aud_file = os.path.join(audio_path, video_id, f'{video_id}_{curr_sec}.wav')
+        audio_train[curr_count] = get_spectrogram(aud_file)
+
         labels_train[curr_count] = get_label_idx(category)
         curr_count +=1
 
+audio_val = torch.Tensor(val_count, 1, 96, 64)
 images_val = torch.Tensor(val_count, 3, IMG_SIZE[0], IMG_SIZE[1])
 labels_val = torch.zeros(val_count, dtype=torch.int32)
 
@@ -133,14 +138,19 @@ for index, row in tqdm(df_val.iterrows()):
     end_time = row['end_time']
 
     for curr_sec in range(start_time, end_time):
-        file = os.path.join(frame_path, video_id, str(curr_sec), f'{video_id}_{curr_sec}_04.jpg')
-        img = torchvision.io.read_image(file)
+        img_file = os.path.join(frame_path, video_id, str(curr_sec), f'{video_id}_{curr_sec}_04.jpg')
+        img = torchvision.io.read_image(img_file)
         images_val[curr_count] = resize(img)
+
+        aud_file = os.path.join(audio_path, video_id, f'{video_id}_{curr_sec}.wav')
+        audio_val[curr_count] = get_spectrogram(aud_file)
+
         labels_val[curr_count] = get_label_idx(category)
         curr_count += 1
 
 
 print('Creating test data...')
+audio_test = torch.Tensor(test_count, 1, 96, 64)
 images_test = torch.Tensor(test_count, 3, IMG_SIZE[0], IMG_SIZE[1])
 labels_test = torch.zeros(test_count, dtype=torch.int32)
 
@@ -152,18 +162,25 @@ for index, row in tqdm(df_test.iterrows()):
     end_time = row['end_time']
 
     for curr_sec in range(start_time, end_time):
-        file = os.path.join(frame_path, video_id, str(curr_sec), f'{video_id}_{curr_sec}_04.jpg')
-        img = torchvision.io.read_image(file)
+        img_file = os.path.join(frame_path, video_id, str(curr_sec), f'{video_id}_{curr_sec}_04.jpg')
+        img = torchvision.io.read_image(img_file)
         images_test[curr_count] = resize(img)
+
+        aud_file = os.path.join(audio_path, video_id, f'{video_id}_{curr_sec}.wav')
+        audio_test[curr_count] = get_spectrogram(aud_file)
+
         labels_test[curr_count] = get_label_idx(category)
         curr_count += 1
 
 input_data['classes'] = list(label_to_idx.keys())
 input_data['images_train'] = images_train
+input_data['audio_train'] = audio_train
 input_data['labels_train'] = labels_train
 input_data['images_val'] = images_val
+input_data['audio_val'] = audio_val
 input_data['labels_val'] = labels_val
 input_data['images_test'] = images_test
+input_data['audio_test'] = audio_test
 input_data['labels_test'] = labels_test
 
-torch.save(input_data, '/mnt/user/saksham/data_distill/DatasetCondensation/data/ave_image_64.pt')
+torch.save(input_data, '/mnt/user/saksham/data_distill/DatasetCondensation/data/ave_comb.pt')

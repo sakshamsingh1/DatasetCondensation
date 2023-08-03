@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from .audio_net import  ANet, ConvNet
 from .vision_net import  Resnet
-from .cls_net import Classifier_Concat
+from .cls_net import Classifier_Concat, Classifier_joint
 from .criterion import BCELoss, CELoss
 
 
@@ -41,6 +41,11 @@ class ModelBuilder():
             net_sound = ANet()
         elif arch == "convNet":
             net_sound = ConvNet(channel, im_size)
+        elif arch == "resnet18":
+            pool_type = 'avgpool'
+            pretrained = False
+            original_resnet = torchvision.models.resnet18(pretrained)
+            net_sound = Resnet(original_resnet, pool_type=pool_type, channel=channel)
         else:
             raise Exception('Architecture undefined!')
 
@@ -82,6 +87,17 @@ class ModelBuilder():
             net.load_state_dict(torch.load(weights))
         return net
 
+    def build_joint_classifier(self, arch, cls_num, weights='', input_dim_size=128):
+        if arch == 'concat':
+            net = Classifier_joint(cls_num, input_dim_size)
+        else:
+            raise Exception('Architecture undefined!')
+
+        net.apply(self.weights_init)
+        if len(weights) > 0:
+            # print('Loading weights for net_grounding')
+            net.load_state_dict(torch.load(weights))
+        return net
 
     def build_criterion(self, arch):
         if arch == 'bce':

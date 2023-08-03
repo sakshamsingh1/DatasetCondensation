@@ -158,10 +158,44 @@ def get_dataset(dataset, data_path, args):
             images_test[:, c] = (images_test[:, c] - mean[c]) / std[c]
         dst_test = TensorDataset(images_test, labels_test)  # no augmentation
 
+    elif dataset == 'AVE_image_64':
+        channel = 3
+        im_size = (64, 64)
+        mean = [0.425, 0.396, 0.370]
+        std =  [0.229, 0.224, 0.221]
+        num_classes = 28
+        data = torch.load(os.path.join(data_path, 'ave_image_64.pt'), map_location='cpu')
+
+        class_names = data['classes']
+
+        images_train = data['images_train']
+        labels_train = data['labels_train']
+        images_train = images_train.detach().float() / 255.0
+        labels_train = labels_train.detach().long()
+        for c in range(channel):
+            images_train[:, c] = (images_train[:, c] - mean[c]) / std[c]
+        dst_train = TensorDataset(images_train, labels_train)  # no augmentation
+
+        images_val = data['images_val']
+        labels_val = data['labels_val']
+        images_val = images_val.detach().float() / 255.0
+        labels_val = labels_val.detach().long()
+        for c in range(channel):
+            images_val[:, c] = (images_val[:, c] - mean[c]) / std[c]
+        dst_val = TensorDataset(images_val, labels_val)  # no augmentation
+
+        images_test = data['images_test']
+        labels_test = data['labels_test']
+        images_test = images_test.detach().float() / 255.0
+        labels_test = labels_test.detach().long()
+        for c in range(channel):
+            images_test[:, c] = (images_test[:, c] - mean[c]) / std[c]
+        dst_test = TensorDataset(images_test, labels_test)  # no augmentation
+
     elif dataset == 'AVE_audio':
         channel = 1
         im_size = (96, 64)
-        mean = [0.425, 0.396,0.370]
+        mean = [0.425, 0.396, 0.370]
         std = [0.229, 0.224, 0.221]
         num_classes = 28
         data = torch.load(os.path.join(data_path, 'ave_audio.pt'), map_location='cpu')
@@ -171,20 +205,78 @@ def get_dataset(dataset, data_path, args):
         images_train = data['images_train']
         labels_train = data['labels_train']
         images_train = images_train.detach().float()# / 255.0
-        labels_train = labels_train.detach()
+        labels_train = labels_train.detach().long()
         # for c in range(channel):
         #     images_train[:, c] = (images_train[:, c] - mean[c]) / std[c]
         dst_train = TensorDataset(images_train, labels_train)  # no augmentation
 
+        images_val = data['images_val']
+        labels_val = data['labels_val']
+        images_val = images_val.detach().float() #/ 255.0
+        labels_val = labels_val.detach().long()
+        # for c in range(channel):
+        #     images_val[:, c] = (images_val[:, c] - mean[c]) / std[c]
+        dst_val = TensorDataset(images_val, labels_val)  # no augmentation
+
         images_test = data['images_val']
         labels_test = data['labels_val']
         images_test = images_test.detach().float() #/ 255.0
-        labels_test = labels_test.detach()
-
+        labels_test = labels_test.detach().long()
         # for c in range(channel):
         #     images_test[:, c] = (images_test[:, c] - mean[c]) / std[c]
-
         dst_test = TensorDataset(images_test, labels_test)  # no augmentation
+
+    elif dataset == 'AVE_comb':
+        data = torch.load(os.path.join(data_path, 'ave_comb.pt'), map_location='cpu')
+        #common
+        mean = [0.425, 0.396, 0.370]
+        std =  [0.229, 0.224, 0.221]
+        num_classes = 28
+        class_names = data['classes']
+
+        aud_channel = 1
+        im_channel = 3
+        channel = [aud_channel,im_channel]
+
+        aud_size = (96, 64)
+        im_size = (64, 64)
+        im_size = [aud_size, im_size]
+        
+        # Train
+        im_train = data['images_train']
+        aud_train = data['audio_train']
+        labels_train = data['labels_train']
+        
+        aud_train = aud_train.detach().float()# / 255.0
+        im_train = im_train.detach().float() / 255.0
+        labels_train = labels_train.detach().long()
+        for c in range(channel[1]):
+            im_train[:, c] = (im_train[:, c] - mean[c]) / std[c]
+        dst_train = CombTensorDataset(aud_train, im_train, labels_train, args)
+
+        #Validation
+        aud_val = data['audio_val']
+        images_val = data['images_val']
+        labels_val = data['labels_val']
+        
+        aud_val = aud_val.detach().float()
+        images_val = images_val.detach().float() / 255.0
+        labels_val = labels_val.detach().long()
+        for c in range(channel[1]):
+            images_val[:, c] = (images_val[:, c] - mean[c]) / std[c]
+        dst_val = CombTensorDataset(aud_val, images_val, labels_val, args)
+
+        #Test
+        aud_test = data['audio_test']
+        images_test = data['images_test']
+        labels_test = data['labels_test']
+        
+        aud_test = aud_test.detach().float()
+        images_test = images_test.detach().float() / 255.0
+        labels_test = labels_test.detach().long()
+        for c in range(channel[1]):
+            images_test[:, c] = (images_test[:, c] - mean[c]) / std[c]
+        dst_test = CombTensorDataset(aud_test, images_test, labels_test, args)
 
     else:
         exit('unknown dataset: %s'%dataset)
@@ -194,7 +286,6 @@ def get_dataset(dataset, data_path, args):
     testloader = torch.utils.data.DataLoader(dst_test, batch_size=args.batch_real, shuffle=False, num_workers=args.num_workers)
 
     return channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader, valloader
-
 
 
 class TensorDataset(Dataset):
@@ -208,13 +299,31 @@ class TensorDataset(Dataset):
     def __len__(self):
         return self.images.shape[0]
 
+class CombTensorDataset(Dataset):
+    def __init__(self, audio, images, labels, args): # images: n x c x h x w tensor
+        if args.input_modality == 'a' or args.input_modality == 'av':
+            self.audio = audio.detach().float()
+        if args.input_modality == 'v' or args.input_modality == 'av':
+            self.images = images.detach().float()
+        self.labels = labels.detach()
+        self.args = args
 
+    def __getitem__(self, index):
+        audio, frame = torch.zeros(1), torch.zeros(1)
+        label = self.labels[index]
+        if self.args.input_modality == 'a' or self.args.input_modality == 'av':
+            audio = self.audio[index]
+        if self.args.input_modality == 'v' or self.args.input_modality == 'av':
+            frame = self.images[index] 
+        ret_dict = {'frame': frame, 'audio': audio, 'label':label}
+        return ret_dict
+
+    def __len__(self):
+        return self.labels.shape[0]
 
 def get_default_convnet_setting():
     net_width, net_depth, net_act, net_norm, net_pooling = 128, 3, 'relu', 'instancenorm', 'avgpooling'
     return net_width, net_depth, net_act, net_norm, net_pooling
-
-
 
 def get_network(model, channel, num_classes, im_size=(32, 32)):
     torch.random.manual_seed(int(time.time() * 1000) % 100000)

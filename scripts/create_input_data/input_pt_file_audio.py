@@ -12,8 +12,6 @@ It consists of these keys:
 
 import os
 import pandas as pd
-import random
-import torchvision
 import torch
 from tqdm import tqdm
 from scipy.io import wavfile
@@ -24,22 +22,59 @@ base_path = '/mnt/data/datasets/AVE_Dataset'
 label_train_path = os.path.join(base_path, 'trainSet.txt')
 label_val_path = os.path.join(base_path, 'valSet.txt')
 label_test_path = os.path.join(base_path, 'testSet.txt')
+label_idx_to_map_path = '/mnt/user/saksham/data_distill/data/labels/cat_id_map.pt'
 
-audio_path = '/mnt/user/saksham/data/audio'
+audio_path = '/mnt/user/saksham/data_distill/data/audio'
 
 input_data = {}
+correct_label = {
+'Church bell':'Church_bell',
+'Male speech, man speaking': 'Male_speech',
+'Bark':'Bark',
+'Fixed-wing aircraft, airplane':'airplane',
+'Race car, auto racing':'Race_car',
+'Female speech, woman speaking':'Female_speech',
+'Helicopter':'Helicopter',
+'Violin, fiddle':'Violin',
+'Flute':'Flute',
+'Ukulele': 'Ukulele', 
+'Frying (food)': 'Frying',
+'Truck': 'Truck', 
+'Shofar': 'Shofar',
+'Motorcycle': 'Motorcycle',
+'Acoustic guitar': 'Acoustic_guitar', 
+'Train horn': 'Train_horn', 
+'Clock': 'Clock', 
+'Banjo': 'Banjo',
+'Goat': 'Goat', 
+'Baby cry, infant cry': 'Baby_cry', 
+'Bus': 'Bus', 
+'Chainsaw': 'Chainsaw', 
+'Cat': 'Cat', 
+'Horse': 'Horse',
+'Toilet flush': 'Toilet_flush', 
+'Rodents, rats, mice': 'Rodents', 
+'Accordion': 'Accordion', 
+'Mandolin': 'Mandolin'
+}
+label_to_idx = torch.load(label_idx_to_map_path)
+
 class_map = {}
 
 df_train = pd.read_csv(label_train_path, delimiter='&', header=None, names=['category', 'video_id', 'quality', 'start_time', 'end_time'])
 df_train = df_train[df_train['video_id']!='VWi2ENBuTbw']
+df_train = df_train[df_train['video_id']!='0-I1-DOC-r8']
+df_train = df_train[df_train['video_id']!='TTYevyM_tUw']
+df_train = df_train[df_train['video_id']!='K6F1sogt46U']
+df_train = df_train[df_train['video_id']!='MWFQerde_h8']
+df_train = df_train[df_train['video_id']!='GmetnCLxFHE']
 
 df_val = pd.read_csv(label_val_path, delimiter='&', header=None, names=['category', 'video_id', 'quality', 'start_time', 'end_time'])
-
 df_test = pd.read_csv(label_test_path, delimiter='&', header=None, names=['category', 'video_id', 'quality', 'start_time', 'end_time'])
 
-classes = list(df_train['category'].unique())
-for i, c in enumerate(classes):
-    class_map[c] = i    
+def get_label_idx(label):
+    label = correct_label[label]
+    return label_to_idx[label]
 
 def get_spectrogram(file):
     sr, wav_data = wavfile.read(file)
@@ -86,18 +121,13 @@ for index, row in tqdm(df_train.iterrows()):
     end_time = row['end_time']
 
     for curr_sec in range(start_time, end_time):
-        try:
-            file = os.path.join(audio_path, video_id, f'{video_id}_{curr_sec}.wav')
-            spec = get_spectrogram(file)
-            audio_train[curr_count] = spec
-            labels_train[curr_count] = class_map[category]
-            curr_count += 1
-        except Exception as e:
-            print(file)
+        file = os.path.join(audio_path, video_id, f'{video_id}_{curr_sec}.wav')
+        spec = get_spectrogram(file)
+        audio_train[curr_count] = spec
+        labels_train[curr_count] = get_label_idx(category)
+        curr_count += 1
 
-print(f'Final count: {curr_count}')            
-audio_train = audio_train[:curr_count]
-labels_train = labels_train[:curr_count]
+print(f'Final count: {curr_count}')
 
 audio_val = torch.Tensor(val_count, 1, 96, 64)
 labels_val = torch.zeros(val_count, dtype=torch.int32)
@@ -114,7 +144,7 @@ for index, row in tqdm(df_val.iterrows()):
         file = os.path.join(audio_path, video_id, f'{video_id}_{curr_sec}.wav')
         spec = get_spectrogram(file)
         audio_val[curr_count] = spec
-        labels_val[curr_count] = class_map[category]
+        labels_val[curr_count] = get_label_idx(category)
         curr_count += 1
 
 
@@ -133,10 +163,10 @@ for index, row in tqdm(df_test.iterrows()):
         file = os.path.join(audio_path, video_id, f'{video_id}_{curr_sec}.wav')
         spec = get_spectrogram(file)
         audio_test[curr_count] = spec
-        labels_test[curr_count] = class_map[category]
+        labels_test[curr_count] = get_label_idx(category)
         curr_count += 1
 
-input_data['classes'] = classes
+input_data['classes'] = list(label_to_idx.keys())
 input_data['images_train'] = audio_train
 input_data['images_val'] = audio_val
 input_data['labels_train'] = labels_train
@@ -144,4 +174,4 @@ input_data['labels_val'] = labels_val
 input_data['images_test'] = audio_test
 input_data['labels_test'] = labels_test
 
-torch.save(input_data, '/mnt/user/saksham/data/misc/ave_audio.pt')
+torch.save(input_data, '/mnt/user/saksham/data_distill/DatasetCondensation/data/ave_audio.pt')

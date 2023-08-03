@@ -206,22 +206,23 @@ def train(netWrapper, loader, optimizer, history, epoch, args):
 def checkpoint(nets, history, epoch, args):
     # print('Saving checkpoints at {} epochs.'.format(epoch))
     (net_sound, net_frame, net_classifier) = nets
-    suffix_latest = 'latest.pth'
+    # suffix_latest = 'latest.pth'
     suffix_best = 'best.pth'
 
-    torch.save(history,
-               '{}/history_{}'.format(args.ckpt, suffix_latest))
-    if net_sound is not None:
-        torch.save(net_sound.state_dict(),
-                '{}/sound_{}'.format(args.ckpt, suffix_latest))
-    if net_frame is not None:
-        torch.save(net_frame.state_dict(),
-                '{}/frame_{}'.format(args.ckpt, suffix_latest))
-    torch.save(net_classifier.state_dict(),
-               '{}/classifier_{}'.format(args.ckpt, suffix_latest))
+    # torch.save(history,
+    #            '{}/history_{}'.format(args.ckpt, suffix_latest))
+    # if net_sound is not None:
+    #     torch.save(net_sound.state_dict(),
+    #             '{}/sound_{}'.format(args.ckpt, suffix_latest))
+    # if net_frame is not None:
+    #     torch.save(net_frame.state_dict(),
+    #             '{}/frame_{}'.format(args.ckpt, suffix_latest))
+    # torch.save(net_classifier.state_dict(),
+    #            '{}/classifier_{}'.format(args.ckpt, suffix_latest))
 
     cur_acc = history['val']['acc'][-1]
     if cur_acc > args.best_acc:
+        print(f'New best accuracy: {cur_acc}')
         args.best_acc = cur_acc
         if net_sound is not None:
             torch.save(net_sound.state_dict(),
